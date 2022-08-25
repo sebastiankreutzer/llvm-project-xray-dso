@@ -11,9 +11,12 @@
 // XRay initialisation logic.
 //===----------------------------------------------------------------------===//
 
+#include <cassert>
 #include <fcntl.h>
 #include <strings.h>
 #include <unistd.h>
+#include <vector>
+#include <cmath>
 
 #include "sanitizer_common/sanitizer_common.h"
 #include "xray_defs.h"
@@ -50,13 +53,66 @@ atomic_uint8_t XRayInitialized{0};
 
 // This should always be updated before XRayInitialized is updated.
 SpinMutex XRayInstrMapMutex;
-XRaySledMap XRayInstrMap;
+//XRaySledMap XRayInstrMap;
+// Contains maps for the main executable as well as DSOs.
+//std::vector<XRaySledMap> XRayInstrMaps;
+XRaySledMap* XRayInstrMaps;
+atomic_uint32_t XRayNumObjects;
 
 // Global flag to determine whether the flags have been initialized.
 atomic_uint8_t XRayFlagsInitialized{0};
 
 // A mutex to allow only one thread to initialize the XRay data structures.
 SpinMutex XRayInitMutex;
+
+int32_t __xray_register_sleds(const XRaySledEntry* SledsBegin, const XRaySledEntry* SledsEnd, const XRayFunctionSledIndex*FnIndexBegin, const XRayFunctionSledIndex* FnIndexEnd, bool FromDSO, XRayTrampolines Trampolines) XRAY_NEVER_INSTRUMENT {
+  if (!SledsBegin || !SledsEnd) {
+    return -1;
+  }
+  XRaySledMap SledMap;
+  SledMap.FromDSO = FromDSO;
+  SledMap.Loaded = true;
+  SledMap.Trampolines = Trampolines;
+  SledMap.Sleds = SledsBegin;
+  SledMap.Entries = SledsEnd - SledsBegin;
+  if (FnIndexBegin != nullptr) {
+    SledMap.SledsIndex = FnIndexBegin;
+    SledMap.Functions = FnIndexEnd - FnIndexBegin;
+  } else {
+    size_t CountFunctions = 0;
+    uint64_t LastFnAddr = 0;
+
+    for (std::size_t I = 0; I < SledMap.Entries; I++) {
+      const auto &Sled = SledMap.Sleds[I];
+      const auto Function = Sled.function();
+      if (Function != LastFnAddr) {
+        CountFunctions++;
+        LastFnAddr = Function;
+      }
+    }
+
+    SledMap.Functions = CountFunctions;
+  }
+  if (SledMap.Functions >= XRayMaxFunctions) {
+    Report("Too many functions! Maximum is %ld\n", XRayMaxFunctions);
+    return -1;
+  }
+
+  Report("Registering %d new functions!\n", SledMap.Functions);
+  Report("Entry trampoline: %p\n", Trampolines.EntryTrampoline);
+  {
+    SpinMutexLock Guard(&XRayInstrMapMutex);
+    //auto Idx = atomic_load(&XRayNumObjects, memory_order_acquire);
+    auto Idx = atomic_fetch_add(&XRayNumObjects, 1, memory_order_acq_rel);
+    if (Idx >= XRayMaxObjects) {
+      Report("Too many objects registered! Maximum is %ld\n", XRayMaxObjects);
+      return -1;
+    }
+    //XRayInstrMaps.push_back(std::move(SledMap));
+    XRayInstrMaps[Idx] = std::move(SledMap);
+    return Idx;
+  }
+}
 
 // __xray_init() will do the actual loading of the current process' memory map
 // and then proceed to look for the .xray_instr_map section/segment.
@@ -80,35 +136,37 @@ void __xray_init() XRAY_NEVER_INSTRUMENT {
     return;
   }
 
-  {
-    SpinMutexLock Guard(&XRayInstrMapMutex);
-    XRayInstrMap.Sleds = __start_xray_instr_map;
-    XRayInstrMap.Entries = __stop_xray_instr_map - __start_xray_instr_map;
-    if (__start_xray_fn_idx != nullptr) {
-      XRayInstrMap.SledsIndex = __start_xray_fn_idx;
-      XRayInstrMap.Functions = __stop_xray_fn_idx - __start_xray_fn_idx;
-    } else {
-      size_t CountFunctions = 0;
-      uint64_t LastFnAddr = 0;
+  atomic_store(&XRayNumObjects, 0, memory_order_release);
 
-      for (std::size_t I = 0; I < XRayInstrMap.Entries; I++) {
-        const auto &Sled = XRayInstrMap.Sleds[I];
-        const auto Function = Sled.function();
-        if (Function != LastFnAddr) {
-          CountFunctions++;
-          LastFnAddr = Function;
-        }
-      }
+  // TODO: This is a bit wasteful.
+  XRayInstrMaps = new XRaySledMap[XRayMaxObjects];
 
-      XRayInstrMap.Functions = CountFunctions;
-    }
-  }
+  Report("Xray initialized!\n");
+
+  __xray_register_sleds(__start_xray_instr_map, __stop_xray_instr_map, __start_xray_fn_idx, __stop_xray_fn_idx, false,
+                        {});
+
   atomic_store(&XRayInitialized, true, memory_order_release);
 
 #ifndef XRAY_NO_PREINIT
   if (flags()->patch_premain)
     __xray_patch();
 #endif
+}
+
+// Default visibility is hidden, so we have to explicitly make it visible to DSO.
+SANITIZER_INTERFACE_ATTRIBUTE int32_t __xray_register_dso(const XRaySledEntry* SledsBegin, const XRaySledEntry* SledsEnd, const XRayFunctionSledIndex* FnIndexBegin, const XRayFunctionSledIndex* FnIndexEnd, XRayTrampolines Trampolines) XRAY_NEVER_INSTRUMENT {
+  // Make sure XRay has been initialized in the main executable.
+  __xray_init();
+
+  if (__xray_num_objects() == 0) {
+    if (Verbosity())
+      Report("No XRay instrumentation map in main executable. Not initializing XRay for DSO.\n");
+    return -1;
+  }
+
+  // Register sleds in global map.
+  return __xray_register_sleds(SledsBegin, SledsEnd, FnIndexBegin, FnIndexEnd, true, Trampolines);
 }
 
 // FIXME: Make check-xray tests work on FreeBSD without

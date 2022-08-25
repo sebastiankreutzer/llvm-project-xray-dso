@@ -96,23 +96,27 @@ bool patchFunctionEntry(const bool Enable, const uint32_t FuncId,
 }
 
 bool patchFunctionExit(const bool Enable, const uint32_t FuncId,
-                       const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
-  return patchSled(Enable, FuncId, Sled, __xray_FunctionExit);
+                       const XRaySledEntry &Sled,
+                       void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
+  return patchSled(Enable, FuncId, Sled, Trampoline);
 }
 
 bool patchFunctionTailExit(const bool Enable, const uint32_t FuncId,
-                           const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
-  return patchSled(Enable, FuncId, Sled, __xray_FunctionTailExit);
+                           const XRaySledEntry &Sled,
+                           void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
+  return patchSled(Enable, FuncId, Sled, Trampoline);
 }
 
 bool patchCustomEvent(const bool Enable, const uint32_t FuncId,
-                      const XRaySledEntry &Sled)
-    XRAY_NEVER_INSTRUMENT { // FIXME: Implement in aarch64?
+                      const XRaySledEntry &Sled,
+                      void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
+  // FIXME: Implement in aarch64?
   return false;
 }
 
 bool patchTypedEvent(const bool Enable, const uint32_t FuncId,
-                     const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
+                     const XRaySledEntry &Sled,
+                     void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
   // FIXME: Implement in aarch64?
   return false;
 }

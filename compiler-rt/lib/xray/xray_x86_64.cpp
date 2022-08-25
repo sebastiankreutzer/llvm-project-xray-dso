@@ -6,8 +6,12 @@
 #include "xray_defs.h"
 #include "xray_interface_internal.h"
 
-#if SANITIZER_FREEBSD || SANITIZER_NETBSD || SANITIZER_MAC
+#if SANITIZER_FREEBSD || SANITIZER_NETBSD || SANITIZER_OPENBSD || SANITIZER_MAC
 #include <sys/types.h>
+#if SANITIZER_OPENBSD
+#include <sys/time.h>
+#include <machine/cpu.h>
+#endif
 #include <sys/sysctl.h>
 #elif SANITIZER_FUCHSIA
 #include <zircon/syscalls.h>
@@ -82,11 +86,14 @@ uint64_t getTSCFrequency() XRAY_NEVER_INSTRUMENT {
   }
   return TSCFrequency == -1 ? 0 : static_cast<uint64_t>(TSCFrequency);
 }
-#elif SANITIZER_FREEBSD || SANITIZER_NETBSD || SANITIZER_MAC
+#elif SANITIZER_FREEBSD || SANITIZER_NETBSD || SANITIZER_OPENBSD || SANITIZER_MAC
 uint64_t getTSCFrequency() XRAY_NEVER_INSTRUMENT {
     long long TSCFrequency = -1;
     size_t tscfreqsz = sizeof(TSCFrequency);
-#if SANITIZER_MAC
+#if SANITIZER_OPENBSD
+    int Mib[2] = { CTL_MACHDEP, CPU_TSCFREQ };
+    if (internal_sysctl(Mib, 2, &TSCFrequency, &tscfreqsz, NULL, 0) != -1) {
+#elif SANITIZER_MAC
     if (internal_sysctlbyname("machdep.tsc.frequency", &TSCFrequency,
                               &tscfreqsz, NULL, 0) != -1) {
 
@@ -169,7 +176,7 @@ bool patchFunctionEntry(const bool Enable, const uint32_t FuncId,
 }
 
 bool patchFunctionExit(const bool Enable, const uint32_t FuncId,
-                       const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
+                       const XRaySledEntry &Sled, void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
   // Here we do the dance of replacing the following sled:
   //
   // xray_sled_n:
@@ -191,11 +198,11 @@ bool patchFunctionExit(const bool Enable, const uint32_t FuncId,
   // Prerequisite is to compute the relative offset fo the
   // __xray_FunctionExit function's address.
   const uint64_t Address = Sled.address();
-  int64_t TrampolineOffset = reinterpret_cast<int64_t>(__xray_FunctionExit) -
+  int64_t TrampolineOffset = reinterpret_cast<int64_t>(Trampoline) -
                              (static_cast<int64_t>(Address) + 11);
   if (TrampolineOffset < MinOffset || TrampolineOffset > MaxOffset) {
     Report("XRay Exit trampoline (%p) too far from sled (%p)\n",
-           __xray_FunctionExit, reinterpret_cast<void *>(Address));
+           Trampoline, reinterpret_cast<void *>(Address));
     return false;
   }
   if (Enable) {
@@ -215,16 +222,16 @@ bool patchFunctionExit(const bool Enable, const uint32_t FuncId,
 }
 
 bool patchFunctionTailExit(const bool Enable, const uint32_t FuncId,
-                           const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
+                           const XRaySledEntry &Sled, void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
   // Here we do the dance of replacing the tail call sled with a similar
   // sequence as the entry sled, but calls the tail exit sled instead.
   const uint64_t Address = Sled.address();
   int64_t TrampolineOffset =
-      reinterpret_cast<int64_t>(__xray_FunctionTailExit) -
+      reinterpret_cast<int64_t>(Trampoline) -
       (static_cast<int64_t>(Address) + 11);
   if (TrampolineOffset < MinOffset || TrampolineOffset > MaxOffset) {
     Report("XRay Tail Exit trampoline (%p) too far from sled (%p)\n",
-           __xray_FunctionTailExit, reinterpret_cast<void *>(Address));
+           Trampoline, reinterpret_cast<void *>(Address));
     return false;
   }
   if (Enable) {
@@ -244,7 +251,7 @@ bool patchFunctionTailExit(const bool Enable, const uint32_t FuncId,
 }
 
 bool patchCustomEvent(const bool Enable, const uint32_t FuncId,
-                      const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
+                      const XRaySledEntry &Sled, void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
   // Here we do the dance of replacing the following sled:
   //
   // In Version 0:
@@ -293,7 +300,7 @@ bool patchCustomEvent(const bool Enable, const uint32_t FuncId,
 }
 
 bool patchTypedEvent(const bool Enable, const uint32_t FuncId,
-                      const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
+                      const XRaySledEntry &Sled, void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
   // Here we do the dance of replacing the following sled:
   //
   // xray_sled_n:

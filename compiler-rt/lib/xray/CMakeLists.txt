@@ -10,6 +10,10 @@ set(XRAY_SOURCES
   xray_utils.cpp
   )
 
+set(XRAY_DSO_SOURCES
+  xray_dso_init.cpp
+  )
+
 # Implementation files for all XRay modes.
 set(XRAY_FDR_MODE_SOURCES
   xray_fdr_flags.cpp
@@ -31,6 +35,10 @@ set(XRAY_PROFILING_MODE_SOURCES
 set(x86_64_SOURCES
   xray_x86_64.cpp
   xray_trampoline_x86_64.S
+  )
+
+set(x86_64_DSO_SOURCES
+  xray_trampoline_x86_64_pic.S
   )
 
 set(arm_SOURCES
@@ -105,10 +113,12 @@ set(XRAY_IMPL_HEADERS
 # consumption by tests.
 set(XRAY_ALL_SOURCE_FILES
   ${XRAY_SOURCES}
+  ${XRAY_DSO_SOURCES}
   ${XRAY_FDR_MODE_SOURCES}
   ${XRAY_BASIC_MODE_SOURCES}
   ${XRAY_PROFILING_MODE_SOURCES}
   ${x86_64_SOURCES}
+  ${x86_64_DSO_SOURCES}
   ${arm_SOURCES}
   ${armhf_SOURCES}
   ${mips_SOURCES}
@@ -132,7 +142,7 @@ endforeach()
 include_directories(..)
 include_directories(../../include)
 
-set(XRAY_CFLAGS ${COMPILER_RT_COMMON_CFLAGS})
+set(XRAY_CFLAGS ${SANITIZER_COMMON_CFLAGS})
 set(XRAY_COMMON_DEFINITIONS XRAY_HAS_EXCEPTIONS=1)
 
 # We don't need RTTI in XRay, so turn that off.
@@ -149,7 +159,6 @@ set(XRAY_COMMON_RUNTIME_OBJECT_LIBS
     RTSanitizerCommon
     RTSanitizerCommonLibc)
 
-# XRay uses C++ standard library headers.
 if (TARGET cxx-headers OR HAVE_LIBCXX)
   set(XRAY_DEPS cxx-headers)
 endif()
@@ -189,6 +198,14 @@ if (APPLE)
     OS ${XRAY_SUPPORTED_OS}
     ARCHS ${XRAY_SUPPORTED_ARCH}
     SOURCES ${XRAY_PROFILING_MODE_SOURCES}
+    ADDITIONAL_HEADERS ${XRAY_IMPL_HEADERS}
+    CFLAGS ${XRAY_CFLAGS}
+    DEFS ${XRAY_COMMON_DEFINITIONS}
+    DEPS ${XRAY_DEPS})
+  add_compiler_rt_object_libraries(RTXrayDSO
+    OS ${XRAY_SUPPORTED_OS}
+    ARCHS ${XRAY_SUPPORTED_ARCH}
+    SOURCES ${XRAY_DSO_SOURCES} ${x86_64_DSO_SOURCES}
     ADDITIONAL_HEADERS ${XRAY_IMPL_HEADERS}
     CFLAGS ${XRAY_CFLAGS}
     DEFS ${XRAY_COMMON_DEFINITIONS}
@@ -237,6 +254,16 @@ if (APPLE)
     LINK_FLAGS ${SANITIZER_COMMON_LINK_FLAGS} ${WEAK_SYMBOL_LINK_FLAGS}
     LINK_LIBS ${XRAY_LINK_LIBS}
     PARENT_TARGET xray)
+  add_compiler_rt_runtime(clang_rt.xray-dso
+    STATIC
+    OS ${XRAY_SUPPORTED_OS}
+    ARCHS ${XRAY_SUPPORTED_ARCH}
+    OBJECT_LIBS RTXrayDSO
+    CFLAGS ${XRAY_CFLAGS}
+    DEFS ${XRAY_COMMON_DEFINITIONS}
+    LINK_FLAGS ${SANITIZER_COMMON_LINK_FLAGS} ${WEAK_SYMBOL_LINK_FLAGS}
+    LINK_LIBS ${XRAY_LINK_LIBS}
+    PARENT_TARGET xray)
 else() # not Apple
   foreach(arch ${XRAY_SUPPORTED_ARCH})
     if(NOT CAN_TARGET_${arch})
@@ -266,6 +293,13 @@ else() # not Apple
     add_compiler_rt_object_libraries(RTXrayPROFILING
       ARCHS ${arch}
       SOURCES ${XRAY_PROFILING_MODE_SOURCES}
+      ADDITIONAL_HEADERS ${XRAY_IMPL_HEADERS}
+      CFLAGS ${XRAY_CFLAGS}
+      DEFS ${XRAY_COMMON_DEFINITIONS}
+      DEPS ${XRAY_DEPS})
+    add_compiler_rt_object_libraries(RTXrayDSO
+      ARCHS ${arch}
+      SOURCES ${XRAY_DSO_SOURCES} ${${arch}_DSO_SOURCES} # FIXME: Only implemented for X86 at the moment
       ADDITIONAL_HEADERS ${XRAY_IMPL_HEADERS}
       CFLAGS ${XRAY_CFLAGS}
       DEFS ${XRAY_COMMON_DEFINITIONS}
@@ -302,6 +336,14 @@ else() # not Apple
      CFLAGS ${XRAY_CFLAGS}
      DEFS ${XRAY_COMMON_DEFINITIONS}
      OBJECT_LIBS RTXrayPROFILING
+     PARENT_TARGET xray)
+   # DSO runtime archive
+   add_compiler_rt_runtime(clang_rt.xray-dso
+     STATIC
+     ARCHS ${arch}
+     CFLAGS ${XRAY_CFLAGS}
+     DEFS ${XRAY_COMMON_DEFINITIONS}
+     OBJECT_LIBS RTXrayDSO
      PARENT_TARGET xray)
   endforeach()
 endif() # not Apple

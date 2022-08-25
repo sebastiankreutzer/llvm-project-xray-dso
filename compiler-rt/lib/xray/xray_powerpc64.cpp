@@ -69,7 +69,8 @@ bool patchFunctionEntry(const bool Enable, uint32_t FuncId,
 }
 
 bool patchFunctionExit(const bool Enable, uint32_t FuncId,
-                       const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
+                       const XRaySledEntry &Sled,
+                       void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
   const uint64_t Address = Sled.address();
   if (Enable) {
     // lis 0, FuncId[16..32]
@@ -87,21 +88,24 @@ bool patchFunctionExit(const bool Enable, uint32_t FuncId,
 }
 
 bool patchFunctionTailExit(const bool Enable, const uint32_t FuncId,
-                           const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
-  return patchFunctionExit(Enable, FuncId, Sled);
+                           const XRaySledEntry &Sled,
+                           void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
+  return patchFunctionExit(Enable, FuncId, Sled, Trampoline);
 }
 
 // FIXME: Maybe implement this better?
 bool probeRequiredCPUFeatures() XRAY_NEVER_INSTRUMENT { return true; }
 
 bool patchCustomEvent(const bool Enable, const uint32_t FuncId,
-                      const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
+                      const XRaySledEntry &Sled,
+                      void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
   // FIXME: Implement in powerpc64?
   return false;
 }
 
 bool patchTypedEvent(const bool Enable, const uint32_t FuncId,
-                     const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
+                     const XRaySledEntry &Sled,
+                     void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
   // FIXME: Implement in powerpc64?
   return false;
 }
