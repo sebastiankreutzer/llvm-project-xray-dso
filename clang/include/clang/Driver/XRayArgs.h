@@ -34,6 +34,7 @@ class XRayArgs {
   bool XRayFunctionIndex;
   int XRayFunctionGroups = 1;
   int XRaySelectedFunctionGroup = 0;
+  bool XRayEnableShared = false;
 
 public:
   /// Parses the XRay arguments from an argument list.
@@ -42,6 +43,7 @@ public:
                llvm::opt::ArgStringList &CmdArgs, types::ID InputType) const;
 
   bool needsXRayRt() const { return XRayInstrument && XRayRT; }
+  bool needsXRayDSORt() const {return XRayInstrument && XRayEnableShared; }
   llvm::ArrayRef<std::string> modeList() const { return Modes; }
   XRayInstrSet instrumentationBundle() const { return InstrumentationBundle; }
 };

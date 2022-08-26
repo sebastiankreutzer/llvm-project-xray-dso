@@ -108,6 +108,10 @@ XRayArgs::XRayArgs(const ToolChain &TC, const ArgList &Args) {
   XRayFunctionIndex = Args.hasFlag(options::OPT_fxray_function_index,
                                    options::OPT_fno_xray_function_index, true);
 
+  if (Args.hasFlag(options::OPT_fxray_enable_shared,
+                   options::OPT_fno_xray_enable_shared, false))
+    XRayEnableShared = true;
+
   auto Bundles =
       Args.getAllArgValues(options::OPT_fxray_instrumentation_bundle);
   if (Bundles.empty())
@@ -238,6 +242,9 @@ void XRayArgs::addArgs(const ToolChain &TC, const ArgList &Args,
 
   CmdArgs.push_back(Args.MakeArgString(Twine(XRayInstructionThresholdOption) +
                                        Twine(InstructionThreshold)));
+
+  if (XRayEnableShared)
+    CmdArgs.push_back("-fxray-enable-shared");
 
   for (const auto &Always : AlwaysInstrumentFiles) {
     SmallString<64> AlwaysInstrumentOpt("-fxray-always-instrument=");

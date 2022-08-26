@@ -11,11 +11,9 @@
 // XRay initialisation logic.
 //===----------------------------------------------------------------------===//
 
-#include <cassert>
 #include <fcntl.h>
 #include <strings.h>
 #include <unistd.h>
-#include <vector>
 #include <cmath>
 
 #include "sanitizer_common/sanitizer_common.h"
