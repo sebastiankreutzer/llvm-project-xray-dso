@@ -565,7 +565,9 @@ XRayPatchingStatus __xray_unpatch_object(int32_t ObjIdx) XRAY_NEVER_INSTRUMENT {
 }
 
 XRayPatchingStatus __xray_patch_function(int32_t FuncId) XRAY_NEVER_INSTRUMENT {
-  auto {ObjId, FnId} = __xray::UnpackId(CombinedFuncId);
+  auto Ids = __xray::UnpackId(FuncId);
+  auto ObjId = Ids.first;
+  auto FnId = Ids.second;
   return mprotectAndPatchFunction(FnId, ObjId, true);
 }
 
@@ -575,7 +577,9 @@ XRayPatchingStatus __xray_patch_function_in_object(int32_t FuncId, int32_t ObjId
 
 XRayPatchingStatus
 __xray_unpatch_function(int32_t FuncId) XRAY_NEVER_INSTRUMENT {
-  auto {ObjId, FnId} = __xray::UnpackId(FuncId);
+  auto Ids = __xray::UnpackId(FuncId);
+  auto ObjId = Ids.first;
+  auto FnId = Ids.second;
   return mprotectAndPatchFunction(FnId, ObjId, false);
 }
 
