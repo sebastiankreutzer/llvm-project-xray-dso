@@ -507,6 +507,7 @@ uint16_t __xray_register_event_type(
 }
 
 XRayPatchingStatus __xray_patch() XRAY_NEVER_INSTRUMENT {
+  Report("XRay patch function called!\n"); // TODO Remove
   XRayPatchingStatus CombinedStatus{SUCCESS};
   for (int32_t I = 0; I < __xray_num_objects(); ++I) {
     if (!isObjectLoaded(I))
@@ -649,4 +650,16 @@ size_t __xray_max_function_id_in_object(int32_t ObjIdx) XRAY_NEVER_INSTRUMENT {
 size_t __xray_num_objects() XRAY_NEVER_INSTRUMENT {
   SpinMutexLock Guard(&XRayInstrMapMutex);
   return atomic_load(&XRayNumObjects, memory_order_acquire);
+}
+
+int32_t __xray_unpack_function_id(int32_t PackedId) {
+  return __xray::UnpackId(PackedId).second;
+}
+
+int32_t __xray_unpack_object_id(int32_t PackedId) {
+  return __xray::UnpackId(PackedId).first;
+}
+
+int32_t __xray_pack_id(int32_t FuncId, int32_t ObjIdx) {
+  return __xray::MakePackedId(FuncId, ObjIdx);
 }

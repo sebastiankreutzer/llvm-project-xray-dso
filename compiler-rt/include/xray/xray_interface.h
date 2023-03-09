@@ -131,6 +131,12 @@ extern size_t __xray_max_function_id_in_object(int32_t ObjIdx);
 
 extern size_t __xray_num_objects();
 
+extern int32_t __xray_unpack_function_id(int32_t PackedId);
+
+extern int32_t __xray_unpack_object_id(int32_t PackedId);
+
+extern int32_t __xray_pack_id(int32_t FuncId, int32_t ObjIdx);
+
 /// Initialize the required XRay data structures. This is useful in cases where
 /// users want to control precisely when the XRay instrumentation data
 /// structures are initialized, for example when the XRay library is built with
