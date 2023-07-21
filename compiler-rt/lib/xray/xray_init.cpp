@@ -92,12 +92,16 @@ int32_t __xray_register_sleds(const XRaySledEntry* SledsBegin, const XRaySledEnt
     SledMap.Functions = CountFunctions;
   }
   if (SledMap.Functions >= XRayMaxFunctions) {
+
     Report("Too many functions! Maximum is %ld\n", XRayMaxFunctions);
     return -1;
   }
 
-  Report("Registering %d new functions!\n", SledMap.Functions);
-  Report("Entry trampoline: %p\n", Trampolines.EntryTrampoline);
+  if (Verbosity()) {
+    Report("Registering %d new functions!\n", SledMap.Functions);
+    Report("Entry trampoline: %p\n", Trampolines.EntryTrampoline);
+  }
+
   {
     SpinMutexLock Guard(&XRayInstrMapMutex);
     //auto Idx = atomic_load(&XRayNumObjects, memory_order_acquire);
@@ -139,7 +143,8 @@ void __xray_init() XRAY_NEVER_INSTRUMENT {
   // TODO: This is a bit wasteful.
   XRayInstrMaps = new XRaySledMap[XRayMaxObjects];
 
-  Report("Xray initialized!\n");
+  if (Verbosity())
+    Report("Xray initialized!\n");
 
   __xray_register_sleds(__start_xray_instr_map, __stop_xray_instr_map, __start_xray_fn_idx, __stop_xray_fn_idx, false,
                         {});

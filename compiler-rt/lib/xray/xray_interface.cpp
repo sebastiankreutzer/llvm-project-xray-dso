@@ -309,7 +309,8 @@ XRayPatchingStatus controlPatching(bool Enable, int32_t ObjIdx) XRAY_NEVER_INSTR
   if (InstrMap.Entries == 0)
     return XRayPatchingStatus::NOT_INITIALIZED;
 
-  Report("Patching object %d with %d functions.\n", ObjIdx, InstrMap.Entries);
+  if (Verbosity())
+    Report("Patching object %d with %d functions.\n", ObjIdx, InstrMap.Entries);
 
   // Check if the corresponding DSO has been unloaded.
   if (!InstrMap.Loaded) {
@@ -507,7 +508,6 @@ uint16_t __xray_register_event_type(
 }
 
 XRayPatchingStatus __xray_patch() XRAY_NEVER_INSTRUMENT {
-  Report("XRay patch function called!\n"); // TODO Remove
   XRayPatchingStatus CombinedStatus{SUCCESS};
   for (int32_t I = 0; I < __xray_num_objects(); ++I) {
     if (!isObjectLoaded(I))
