@@ -169,7 +169,14 @@ SANITIZER_INTERFACE_ATTRIBUTE int32_t __xray_register_dso(const XRaySledEntry* S
   }
 
   // Register sleds in global map.
-  return __xray_register_sleds(SledsBegin, SledsEnd, FnIndexBegin, FnIndexEnd, true, Trampolines);
+  int objIdx = __xray_register_sleds(SledsBegin, SledsEnd, FnIndexBegin, FnIndexEnd, true, Trampolines);
+
+#ifndef XRAY_NO_PREINIT
+  if (objIdx >= 0 && flags()->patch_premain)
+    __xray_patch_object(objIdx);
+#endif
+
+  return objIdx;
 }
 
 // FIXME: Make check-xray tests work on FreeBSD without
