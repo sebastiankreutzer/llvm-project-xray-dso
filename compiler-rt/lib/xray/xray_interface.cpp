@@ -181,12 +181,11 @@ bool patchSled(const XRaySledEntry &Sled, bool Enable, int32_t FuncId,
         patchFunctionEntry(Enable, FuncId, Sled, Trampolines.LogArgsTrampoline);
     break;
   case XRayEntryType::CUSTOM_EVENT:
-    Success = patchCustomEvent(Enable, FuncId, Sled,
-                               Trampolines.CustomEventTrampoline);
+    Success = patchCustomEvent(Enable, FuncId, Sled);
     break;
   case XRayEntryType::TYPED_EVENT:
     Success =
-        patchTypedEvent(Enable, FuncId, Sled, Trampolines.TypedEventTrampoline);
+        patchTypedEvent(Enable, FuncId, Sled);
     break;
   default:
     Report("Unsupported sled kind '%" PRIu64 "' @%04x\n", Sled.Address,

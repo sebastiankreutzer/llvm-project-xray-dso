@@ -248,8 +248,7 @@ bool patchFunctionTailExit(const bool Enable, const uint32_t FuncId,
 }
 
 bool patchCustomEvent(const bool Enable, const uint32_t FuncId,
-                      const XRaySledEntry &Sled,
-                      void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
+                      const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
   // Here we do the dance of replacing the following sled:
   //
   // xray_sled_n:
@@ -277,8 +276,7 @@ bool patchCustomEvent(const bool Enable, const uint32_t FuncId,
 }
 
 bool patchTypedEvent(const bool Enable, const uint32_t FuncId,
-                     const XRaySledEntry &Sled,
-                     void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
+                     const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
   // Here we do the dance of replacing the following sled:
   //
   // xray_sled_n:
