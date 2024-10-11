@@ -153,8 +153,8 @@ namespace {
 
 bool isObjectLoaded(int32_t ObjId) {
   SpinMutexLock Guard(&XRayInstrMapMutex);
-  if (ObjId < 0 ||
-      static_cast<uint32_t>(ObjId) >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
+  if (ObjId < 0 || static_cast<uint32_t>(ObjId) >=
+                       atomic_load(&XRayNumObjects, memory_order_acquire)) {
     return false;
   }
   return XRayInstrMaps[ObjId].Loaded;
@@ -165,28 +165,22 @@ bool patchSled(const XRaySledEntry &Sled, bool Enable, int32_t FuncId,
   bool Success = false;
   switch (Sled.Kind) {
   case XRayEntryType::ENTRY:
-    Success =
-        patchFunctionEntry(Enable, FuncId, Sled, Trampolines.EntryTrampoline);
+    Success = patchFunctionEntry(Enable, FuncId, Sled, Trampolines, false);
     break;
   case XRayEntryType::EXIT:
-    Success =
-        patchFunctionExit(Enable, FuncId, Sled, Trampolines.ExitTrampoline);
+    Success = patchFunctionExit(Enable, FuncId, Sled, Trampolines);
     break;
   case XRayEntryType::TAIL:
-    Success = patchFunctionTailExit(Enable, FuncId, Sled,
-                                    Trampolines.TailExitTrampoline);
+    Success = patchFunctionTailExit(Enable, FuncId, Sled, Trampolines);
     break;
   case XRayEntryType::LOG_ARGS_ENTRY:
-    Success =
-        patchFunctionEntry(Enable, FuncId, Sled, Trampolines.LogArgsTrampoline);
+    Success = patchFunctionEntry(Enable, FuncId, Sled, Trampolines, true);
     break;
   case XRayEntryType::CUSTOM_EVENT:
-    Success = patchCustomEvent(Enable, FuncId, Sled,
-                               Trampolines.CustomEventTrampoline);
+    Success = patchCustomEvent(Enable, FuncId, Sled);
     break;
   case XRayEntryType::TYPED_EVENT:
-    Success =
-        patchTypedEvent(Enable, FuncId, Sled, Trampolines.TypedEventTrampoline);
+    Success = patchTypedEvent(Enable, FuncId, Sled);
     break;
   default:
     Report("Unsupported sled kind '%" PRIu64 "' @%04x\n", Sled.Address,
@@ -235,8 +229,8 @@ XRayPatchingStatus patchFunction(int32_t FuncId, int32_t ObjId,
   XRaySledMap InstrMap;
   {
     SpinMutexLock Guard(&XRayInstrMapMutex);
-    if (ObjId < 0 ||
-        static_cast<uint32_t>(ObjId) >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
+    if (ObjId < 0 || static_cast<uint32_t>(ObjId) >=
+                         atomic_load(&XRayNumObjects, memory_order_acquire)) {
       Report("Unable to patch function: invalid sled map index: %d", ObjId);
       return XRayPatchingStatus::FAILED;
     }
@@ -295,8 +289,8 @@ XRayPatchingStatus controlPatchingObjectUnchecked(bool Enable, int32_t ObjId) {
   XRaySledMap InstrMap;
   {
     SpinMutexLock Guard(&XRayInstrMapMutex);
-    if (ObjId < 0 ||
-        static_cast<uint32_t>(ObjId) >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
+    if (ObjId < 0 || static_cast<uint32_t>(ObjId) >=
+                         atomic_load(&XRayNumObjects, memory_order_acquire)) {
       Report("Unable to patch functions: invalid sled map index: %d\n", ObjId);
       return XRayPatchingStatus::FAILED;
     }
@@ -439,8 +433,8 @@ XRayPatchingStatus mprotectAndPatchFunction(int32_t FuncId, int32_t ObjId,
   XRaySledMap InstrMap;
   {
     SpinMutexLock Guard(&XRayInstrMapMutex);
-    if (ObjId < 0 ||
-        static_cast<uint32_t>(ObjId) >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
+    if (ObjId < 0 || static_cast<uint32_t>(ObjId) >=
+                         atomic_load(&XRayNumObjects, memory_order_acquire)) {
       Report("Unable to patch function: invalid sled map index: %d\n", ObjId);
       return XRayPatchingStatus::FAILED;
     }
@@ -664,7 +658,8 @@ size_t __xray_max_function_id() XRAY_NEVER_INSTRUMENT {
 
 size_t __xray_max_function_id_in_object(int32_t ObjId) XRAY_NEVER_INSTRUMENT {
   SpinMutexLock Guard(&XRayInstrMapMutex);
-  if (ObjId < 0 || static_cast<uint32_t>(ObjId) >= atomic_load(&XRayNumObjects, memory_order_acquire))
+  if (ObjId < 0 || static_cast<uint32_t>(ObjId) >=
+                       atomic_load(&XRayNumObjects, memory_order_acquire))
     return 0;
   return XRayInstrMaps[ObjId].Functions;
 }
