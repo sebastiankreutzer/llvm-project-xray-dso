@@ -154,7 +154,7 @@ namespace {
 bool isObjectLoaded(int32_t ObjId) {
   SpinMutexLock Guard(&XRayInstrMapMutex);
   if (ObjId < 0 ||
-      ObjId >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
+      static_cast<uint32_t>(ObjId) >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
     return false;
   }
   return XRayInstrMaps[ObjId].Loaded;
@@ -236,7 +236,7 @@ XRayPatchingStatus patchFunction(int32_t FuncId, int32_t ObjId,
   {
     SpinMutexLock Guard(&XRayInstrMapMutex);
     if (ObjId < 0 ||
-        ObjId >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
+        static_cast<uint32_t>(ObjId) >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
       Report("Unable to patch function: invalid sled map index: %d", ObjId);
       return XRayPatchingStatus::FAILED;
     }
@@ -296,7 +296,7 @@ XRayPatchingStatus controlPatchingObjectUnchecked(bool Enable, int32_t ObjId) {
   {
     SpinMutexLock Guard(&XRayInstrMapMutex);
     if (ObjId < 0 ||
-        ObjId >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
+        static_cast<uint32_t>(ObjId) >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
       Report("Unable to patch functions: invalid sled map index: %d\n", ObjId);
       return XRayPatchingStatus::FAILED;
     }
@@ -411,8 +411,6 @@ XRayPatchingStatus controlPatching(bool Enable) XRAY_NEVER_INSTRUMENT {
       break;
     case ONGOING:
       UNREACHABLE("Status ONGOING should not appear at this point");
-    default:
-      UNREACHABLE("Unhandled patching status");
     }
   }
   return CombinedStatus;
@@ -442,7 +440,7 @@ XRayPatchingStatus mprotectAndPatchFunction(int32_t FuncId, int32_t ObjId,
   {
     SpinMutexLock Guard(&XRayInstrMapMutex);
     if (ObjId < 0 ||
-        ObjId >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
+        static_cast<uint32_t>(ObjId) >= atomic_load(&XRayNumObjects, memory_order_acquire)) {
       Report("Unable to patch function: invalid sled map index: %d\n", ObjId);
       return XRayPatchingStatus::FAILED;
     }
@@ -636,7 +634,7 @@ uintptr_t __xray_function_address_in_object(int32_t FuncId, int32_t ObjId)
   {
     SpinMutexLock Guard(&XRayInstrMapMutex);
     auto count = atomic_load(&XRayNumObjects, memory_order_acquire);
-    if (ObjId < 0 || ObjId >= count) {
+    if (ObjId < 0 || static_cast<uint32_t>(ObjId) >= count) {
       Report("Unable to determine function address: invalid sled map index %d "
              "(size is %d)\n",
              ObjId, (int)count);
@@ -666,7 +664,7 @@ size_t __xray_max_function_id() XRAY_NEVER_INSTRUMENT {
 
 size_t __xray_max_function_id_in_object(int32_t ObjId) XRAY_NEVER_INSTRUMENT {
   SpinMutexLock Guard(&XRayInstrMapMutex);
-  if (ObjId < 0 || ObjId >= atomic_load(&XRayNumObjects, memory_order_acquire))
+  if (ObjId < 0 || static_cast<uint32_t>(ObjId) >= atomic_load(&XRayNumObjects, memory_order_acquire))
     return 0;
   return XRayInstrMaps[ObjId].Functions;
 }
